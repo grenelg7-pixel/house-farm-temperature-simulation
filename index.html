@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>House &amp; Farm Heat Lab — Three-Station Daytime Simulation</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body data-station="1">
+<div class="app">
+
+  <header class="top">
+    <div class="head-copy">
+      <div class="eyebrow">Interactive thermal model · 6 AM – 6 PM</div>
+      <h1>House &amp; Farm Heat Lab</h1>
+      <p>Three guided stations, one shared day. Run the house from morning to evening, switch on the kitchen stove to watch heat spread room to room, then take the same day to the farm and test summer sun or rain.</p>
+    </div>
+    <div class="live-stack">
+      <div class="weather-badge"><span id="weatherIcon" aria-hidden="true">☀</span><span id="weatherLabel">Clear and warm</span></div>
+      <div class="badge" id="liveBadge"><span class="dot"></span><span id="liveLabel">ready at 6 AM</span></div>
+      <div class="header-clock"><span id="clock">06:00</span><small id="clockAmPm">AM</small></div>
+    </div>
+  </header>
+
+  <nav class="station-rail" aria-label="Simulation stations">
+    <button class="station-tab active" type="button" data-station="1" aria-current="step">
+      <span class="station-num">01</span>
+      <span class="station-copy"><b>Day cycle</b><small>Run the house from 6 AM to 6 PM</small></span>
+      <span class="station-state" id="state1">active</span>
+    </button>
+    <button class="station-tab" type="button" data-station="2">
+      <span class="station-num">02</span>
+      <span class="station-copy"><b>Kitchen heat</b><small>Stove on, watch the gradient move</small></span>
+      <span class="station-state" id="state2">next</span>
+    </button>
+    <button class="station-tab" type="button" data-station="3">
+      <span class="station-num">03</span>
+      <span class="station-copy"><b>Farm weather</b><small>Season, intense sun or rain</small></span>
+      <span class="station-state" id="state3">next</span>
+    </button>
+  </nav>
+
+  <main class="layout">
+    <section class="card stage-card">
+      <div class="stage-head">
+        <div>
+          <div class="kicker" id="stageKicker">Station 01 · Day cycle</div>
+          <h2 id="stageTitle">The house through the day</h2>
+        </div>
+        <div class="hud">
+          <div><span>Outside</span><b id="hudOut">24.0 °C</b></div>
+          <div><span>Kitchen</span><b id="hudKitchen">24.0 °C</b></div>
+          <div><span>Farm</span><b id="hudFarm">23.2 °C</b></div>
+        </div>
+      </div>
+
+      <div class="stage">
+        <canvas id="scene" aria-label="Animated cross-section of a house with three rooms and a farm plot, colour-coded by temperature"></canvas>
+        <div class="stage-focus" id="focusChip">FOCUS · HOUSE</div>
+        <div class="stage-legend" aria-hidden="true">
+          <span><i style="background:#4cc9f0"></i>cool</span>
+          <span><i style="background:#ffe066"></i>mild</span>
+          <span><i style="background:#ff7a3d"></i>hot</span>
+          <span class="stage-legend-sep"></span>
+          <span><i class="pulse-dot"></i>live</span>
+        </div>
+      </div>
+
+      <div class="transport">
+        <button id="playBtn" class="primary" type="button">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 2.5v11l9-5.5z"/></svg>
+          <span>Play day</span>
+        </button>
+        <button id="resetBtn" type="button">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 8a5 5 0 1 0 1.6-3.7"/><path d="M3 2.5V5h2.5"/></svg>
+          <span>Reset 6 AM</span>
+        </button>
+        <button id="windowBtn" class="ghost" type="button" aria-pressed="false">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2.5" y="2.5" width="11" height="11" rx="1"/><path d="M8 2.5v11M2.5 8h11"/></svg>
+          <span>Windows: closed</span>
+        </button>
+        <div class="spacer"></div>
+        <span class="seg-label">speed</span>
+        <div class="seg" role="group" aria-label="Time warp speed">
+          <button type="button" data-speed="1" class="active">1×</button>
+          <button type="button" data-speed="2">2×</button>
+          <button type="button" data-speed="4">4×</button>
+        </div>
+      </div>
+
+      <div class="timeline">
+        <div class="timeline-head">
+          <span>Manual time</span>
+          <b id="timeReadout">06:00 AM</b>
+          <span id="timeHint">Station 1 only</span>
+        </div>
+        <input type="range" id="timeRange" min="360" max="1080" step="5" value="360" aria-label="Current time, 6 AM to 6 PM" />
+        <div class="timeline-labels"><span>6 AM</span><span>9 AM</span><span>12 PM</span><span>3 PM</span><span>6 PM</span></div>
+      </div>
+
+      <div class="scale-row">
+        <span class="scale-cap">15 °C</span>
+        <div class="scale-track" aria-hidden="true">
+          <div class="scale-marker kitchen" id="markerKitchen"><span>K</span></div>
+          <div class="scale-marker outdoor" id="markerOut"><span>O</span></div>
+          <div class="scale-marker farm" id="markerFarm"><span>F</span></div>
+        </div>
+        <span class="scale-cap">45 °C</span>
+        <div class="scale-legend"><span><i style="background:#ffb347"></i>K kitchen</span><span><i style="background:#cfe2f5"></i>O outside</span><span><i style="background:#6fe3a1"></i>F farm</span></div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <section class="card station-panel active" data-panel="1">
+        <div class="panel-head">
+          <div><span class="kicker">Station 01</span><h3>Day cycle</h3></div>
+          <span class="pill" id="dayPill">paused</span>
+        </div>
+        <p class="panel-copy">Play the day or drag the manual time slider. The house starts near the outdoor air, gains solar heat through the morning, peaks after noon, then cools toward evening. The stove and farm weather are locked while you study this baseline.</p>
+        <div class="quick-jumps" role="group" aria-label="Jump to a time of day">
+          <button type="button" data-jump="360">6 AM</button>
+          <button type="button" data-jump="540">9 AM</button>
+          <button type="button" data-jump="720">12 PM</button>
+          <button type="button" data-jump="900">3 PM</button>
+          <button type="button" data-jump="1080">6 PM</button>
+        </div>
+        <div class="field-row">
+          <label for="timeInput">Jump to a specific time</label>
+          <div class="time-input-row">
+            <input type="time" id="timeInput" min="06:00" max="18:00" step="300" value="06:00" />
+            <button id="timeApply" type="button">Go</button>
+          </div>
+        </div>
+        <div class="panel-actions">
+          <button class="primary" type="button" data-action="play">Play day</button>
+          <button type="button" data-action="pause">Pause</button>
+        </div>
+        <div class="panel-note" id="dayNote">Start the clock, or seek to any hour. Seeking re-baselines the house with the stove off so each hour is physically consistent.</div>
+        <button class="next-btn" type="button" data-next="2">Continue to kitchen heat →</button>
+      </section>
+
+      <section class="card station-panel" data-panel="2">
+        <div class="panel-head">
+          <div><span class="kicker">Station 02</span><h3>Kitchen heat</h3></div>
+          <span class="pill" id="stoveBadge">off</span>
+        </div>
+        <p class="panel-copy">Turn on the stove, choose a burner power, then advance the clock in short steps. Heat enters the kitchen first; the temperature difference pushes it through the doorways into the living room and bedroom. Leaving this station switches the stove off, so the next stage starts clean.</p>
+        <button id="stoveBtn" class="stove-btn" type="button" aria-pressed="false">
+          <span class="flame" aria-hidden="true">🔥</span>
+          <span class="txt"><b id="stoveTitle">Turn stove on</b><small id="stoveSub">Adds heat to the kitchen</small></span>
+          <span class="knob" aria-hidden="true"></span>
+        </button>
+        <div class="field-label">Burner power</div>
+        <div class="power-seg" role="group" aria-label="Stove power">
+          <button type="button" data-power="0.6">Low</button>
+          <button type="button" data-power="1" class="active">Medium</button>
+          <button type="button" data-power="1.5">High</button>
+        </div>
+        <div class="cook-readout"><span>Cooking time</span><b id="cookTime">0 min</b></div>
+        <div class="advance-row" role="group" aria-label="Advance cooking time">
+          <button type="button" data-advance="10">+10 min</button>
+          <button type="button" data-advance="30">+30 min</button>
+          <button type="button" data-advance="60">+1 hour</button>
+        </div>
+        <div class="flow-strip" aria-label="Heat flow through the house">
+          <div><span>Kitchen</span><b id="flowK">24.0°</b></div>
+          <i aria-hidden="true">→</i>
+          <div><span>Living</span><b id="flowL">23.7°</b></div>
+          <i aria-hidden="true">→</i>
+          <div><span>Bedroom</span><b id="flowB">24.2°</b></div>
+        </div>
+        <div class="gradient-readout" id="gradientReadout">Kitchen is 0.3° warmer than the living room.</div>
+        <div class="panel-note" id="stoveNote">Stove off. Room temperatures are following the outdoor curve. Turn it on, then advance time to see the plume build.</div>
+        <button class="next-btn" type="button" data-next="3">Continue to farm weather →</button>
+      </section>
+
+      <section class="card station-panel" data-panel="3">
+        <div class="panel-head">
+          <div><span class="kicker">Station 03</span><h3>Farm weather</h3></div>
+          <span class="pill" id="seasonPill">summer</span>
+        </div>
+        <p class="panel-copy">Choose a season, then apply one weather action at a time. Intense sun drives canopy heat and water loss; rain cools the air and recharges the soil. Advance time to see the lag in soil moisture, growth and heat stress. Leaving this station clears the weather action; the day, season and stored temperatures carry over.</p>
+        <div class="field-label">Season</div>
+        <div class="season-toggle" role="group" aria-label="Season">
+          <button type="button" data-season="summer" class="active" aria-pressed="true">☀ Summer</button>
+          <button type="button" data-season="rainy" aria-pressed="false">🌧 Rainy season</button>
+        </div>
+        <div class="field-label">Weather action</div>
+        <div class="weather-grid" role="group" aria-label="Weather action">
+          <button type="button" data-weather="clear" class="active">Clear</button>
+          <button type="button" data-weather="sun">Intense sun</button>
+          <button type="button" data-weather="rain">Start rain</button>
+        </div>
+        <div class="advance-row" role="group" aria-label="Advance farm time">
+          <button type="button" data-advance="30">+30 min</button>
+          <button type="button" data-advance="60">+1 hour</button>
+          <button type="button" data-advance="120">+2 hours</button>
+        </div>
+        <div class="reset-row">
+          <button type="button" class="ghost" id="resetFarmBtn">Reset plot</button>
+          <span>Restores the current season's soil, canopy and crop state.</span>
+        </div>
+        <p class="farm-status" id="farmStatus">Crops are holding up in the summer sun.</p>
+        <div class="meter">
+          <div class="meter-head"><span>Soil moisture</span><b id="moistVal">38%</b></div>
+          <div class="meter-track"><i class="moist" id="moistBar"></i></div>
+        </div>
+        <div class="meter">
+          <div class="meter-head"><span>Crop growth</span><b id="growthVal">22%</b></div>
+          <div class="meter-track"><i class="growth" id="growthBar"></i></div>
+        </div>
+        <div class="meter">
+          <div class="meter-head"><span>Heat stress</span><b id="stressVal">0%</b></div>
+          <div class="meter-track"><i class="stress" id="stressBar"></i></div>
+        </div>
+        <div class="panel-note" id="farmNote">Season changes re-baseline the current hour. Weather actions apply immediately to the air, while canopy and soil respond with a lag.</div>
+        <button class="next-btn" type="button" data-next="1">Back to station 1 ↺</button>
+      </section>
+
+      <section class="card readings-card">
+        <div class="panel-head">
+          <div><span class="kicker">Live readings</span><h3>Temperature field</h3></div>
+          <span class="pill" id="readPill">°C</span>
+        </div>
+        <div class="readings">
+          <div class="reading" id="readKitchen" style="--zc:#ffb347">
+            <span class="reading-name">Kitchen</span>
+            <span class="reading-temp"><b>24.0</b><small>°C</small></span>
+            <span class="reading-delta">—</span>
+            <div class="reading-bar"><i></i></div>
+          </div>
+          <div class="reading" id="readLiving" style="--zc:#4cc9f0">
+            <span class="reading-name">Living room</span>
+            <span class="reading-temp"><b>23.7</b><small>°C</small></span>
+            <span class="reading-delta">—</span>
+            <div class="reading-bar"><i></i></div>
+          </div>
+          <div class="reading" id="readBedroom" style="--zc:#b39dff">
+            <span class="reading-name">Bedroom</span>
+            <span class="reading-temp"><b>24.2</b><small>°C</small></span>
+            <span class="reading-delta">—</span>
+            <div class="reading-bar"><i></i></div>
+          </div>
+          <div class="reading" id="readOut" style="--zc:#cfe2f5">
+            <span class="reading-name">Outside</span>
+            <span class="reading-temp"><b>24.0</b><small>°C</small></span>
+            <span class="reading-delta">baseline</span>
+            <div class="reading-bar"><i></i></div>
+          </div>
+          <div class="reading" id="readFarm" style="--zc:#6fe3a1">
+            <span class="reading-name">Farm canopy</span>
+            <span class="reading-temp"><b>23.2</b><small>°C</small></span>
+            <span class="reading-delta">—</span>
+            <div class="reading-bar"><i></i></div>
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <section class="charts">
+      <div class="card chart-card" id="houseChartCard">
+        <div class="chart-head"><h3>House &amp; outdoor temperature</h3><span>6 AM → 6 PM</span></div>
+        <div class="chart-legend">
+          <span><i style="background:#ff8a4c"></i>Kitchen</span>
+          <span><i style="background:#4cc9f0"></i>Living</span>
+          <span><i style="background:#b39dff"></i>Bedroom</span>
+          <span><i style="background:#8ea3c0"></i>Outside</span>
+        </div>
+        <canvas id="houseChart" class="chart" aria-label="Line chart of kitchen, living room, bedroom and outdoor temperatures through the day"></canvas>
+      </div>
+      <div class="card chart-card" id="farmChartCard">
+        <div class="chart-head"><h3>Farm conditions</h3><span>moisture · growth · stress · canopy</span></div>
+        <div class="chart-legend">
+          <span><i style="background:#4cc9f0"></i>Moisture</span>
+          <span><i style="background:#6fe3a1"></i>Growth</span>
+          <span><i style="background:#ff5d5d"></i>Heat stress</span>
+          <span><i style="background:#ffb347"></i>Canopy °C</span>
+        </div>
+        <canvas id="farmChart" class="chart" aria-label="Line chart of soil moisture, crop growth, heat stress and farm canopy temperature"></canvas>
+      </div>
+    </section>
+  </main>
+
+  <section class="notes" aria-label="Model notes and edge cases">
+    <div class="card note">
+      <div class="num">1</div>
+      <div>
+        <h4>One station at a time</h4>
+        <p>Only the active station's controls are editable. The shared state carries over, so you can set the hour in Station 1, cook in Station 2, then test weather in Station 3 without losing the day.</p>
+      </div>
+    </div>
+    <div class="card note">
+      <div class="num">2</div>
+      <div>
+        <h4>Heat has to travel</h4>
+        <p>The stove is a local source in the kitchen. Warm air pushes through the doorways, so the living room and bedroom warm later and less than the kitchen. The orange arrows show the current gradient.</p>
+      </div>
+    </div>
+    <div class="card note">
+      <div class="num">3</div>
+      <div>
+        <h4>Weather is a step input</h4>
+        <p>Intense sun or rain changes outdoor air immediately. Indoor air, canopy temperature, soil moisture and growth respond with thermal and hydrological lag. Sudden changes are smoothed over roughly two simulated minutes.</p>
+      </div>
+    </div>
+    <div class="card note">
+      <div class="num">4</div>
+      <div>
+        <h4>Station isolation</h4>
+        <p>Only one driver is active at a time. Leaving Kitchen heat switches the stove off; leaving Farm weather clears the weather action. The day, season and stored temperatures still persist. The model is a lumped single-zone approximation: no humidity, wind, shading or HVAC. Values are illustrative, not a building-energy calculation.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Simplified lumped-capacitance model: three indoor zones exchange heat with each other and the outdoors,
+    the stove adds a power-scaled heat load, and solar gain follows the sun. The farm tracks canopy temperature,
+    soil moisture, growth and heat stress. Seeking time re-baselines the house with the stove off.
+  </footer>
+</div>
+
+<script src="js/util.js"></script>
+<script src="js/model.js"></script>
+<script src="js/scene.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
